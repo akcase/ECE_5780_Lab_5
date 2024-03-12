@@ -56,7 +56,7 @@ void SystemClock_Config(void);
 
 /* USER CODE END 0 */
 
-void led_init(void)
+void gpio_init(void)
 {
 	/* Initialize PB11 */
 	// Set to alternate function mode
@@ -65,6 +65,10 @@ void led_init(void)
 	// Set to open-drain output type
 	GPIOB->OTYPER |= (1<<11);
 	// Set I2C2_SDA as alternate function
+	GPIOB->AFR[1] |= (1<<12);
+	GPIOB->AFR[1] &= ~(1<<13);
+	GPIOB->AFR[1] &= ~(1<<14);
+	GPIOB->AFR[1] &= ~(1<<15);
 	
 	/* Initialize PB13 */
 	// Set to alternate function mode
@@ -73,6 +77,10 @@ void led_init(void)
 	// Set to open-drain output type
 	GPIOB->OTYPER |= (1<<13);
 	// Set I2C2_SCL as alternate function
+	GPIOB->AFR[1] |= (1<<20);
+	GPIOB->AFR[1] &= ~(1<<21);
+	GPIOB->AFR[1] |= (1<<22);
+	GPIOB->AFR[1] &= ~(1<<23);
 	
 	/* Initialize PB14 */
 	// Set to output mode
@@ -83,7 +91,6 @@ void led_init(void)
 	// Initialize high
 	GPIOB->ODR |= (1<<14);
 	
-	
 	/* Initialize PC0 */
 	// Set to output mode
 	GPIOC->MODER |= (1<<0);
@@ -92,6 +99,88 @@ void led_init(void)
 	GPIOC->OTYPER &= ~(1<<0);
 	// Initialize high
 	GPIOC->ODR |= (1<<0);
+	
+	/* Setup Orange LED (PC8) */
+	// Set to general purpose output mode
+	GPIOC->MODER |= (1<<16);
+	GPIOC->MODER &= ~(1<<17);
+	// Set to push-pull mode
+	GPIOC->OTYPER &= ~(1<<8);
+	// Set to low speed
+	GPIOC->OSPEEDR &= ~(1<<16);
+	GPIOC->OSPEEDR &= ~(1<<17);
+	// Set no pull-up, no pull-down
+	GPIOC->PUPDR &= ~(1<<16);
+	GPIOC->PUPDR &= ~(1<<17);
+	// Initialize to low
+	GPIOC->ODR &= ~(1<<8);
+	
+	/* Setup Green LED (PC9) */
+	// Set to general purpose output mode
+	GPIOC->MODER |= (1<<18);
+	GPIOC->MODER &= ~(1<<19);
+	// Set to push-pull mode
+	GPIOC->OTYPER &= ~(1<<9);
+	// Set to low speed
+	GPIOC->OSPEEDR &= ~(1<<18);
+	GPIOC->OSPEEDR &= ~(1<<19);
+	// Set no pull-up, no pull-down
+	GPIOC->PUPDR &= ~(1<<18);
+	GPIOC->PUPDR &= ~(1<<19);
+	// Initialize to low
+	GPIOC->ODR &= ~(1<<9);
+}
+
+void i2c_init(void)
+{
+	/* Set I2C to use 100kHz standard I2C */
+	// Set PRESC to 1
+	I2C2->TIMINGR |= (1<<28);
+	I2C2->TIMINGR &= ~(1<<29);
+	I2C2->TIMINGR &= ~(1<<30);
+	I2C2->TIMINGR &= ~(1<<31);
+	// Set SCLDEL to 0x4
+	I2C2->TIMINGR |= (1<<22);
+	// Set SDADEL to 0x2
+	I2C2->TIMINGR |= (1<<17);
+	// Set SCLH to 0xF
+	I2C2->TIMINGR |= (1<<8);
+	I2C2->TIMINGR |= (1<<9);
+	I2C2->TIMINGR |= (1<<10);
+	I2C2->TIMINGR |= (1<<11);
+	// Set SCLL to 0x13
+	I2C2->TIMINGR |= (1<<4);
+	I2C2->TIMINGR |= (1<<1);
+	I2C2->TIMINGR |= (1<<0);
+	
+	/* Enable I2C2 */
+	I2C2->CR1 |= (1<<0);
+}
+
+void i2c_write(void)
+{
+	/* Configure I2C to write */
+	// Set the slave address to 0x6A
+	I2C2->CR2 |= (0x69<<1);
+	// Set the number of bytes to transmit to 1
+	I2C2->CR2 |= (1<<16);
+	// Set to write operation
+	I2C2->CR2 &= ~(1<<10);
+	// Set the start bit
+	I2C2->CR2 |= (1<<13);
+}
+
+void i2c_read(void)
+{
+	/* Configure I2C to read */
+	// Set the slave address to 0x6A
+	I2C2->CR2 |= (0x69<<1);
+	// Set the number of bytes to transmit to 1
+	I2C2->CR2 |= (1<<16);
+	// Set to write operation
+	I2C2->CR2 |= I2C_CR2_RD_WRN;
+	// Set the start bit
+	I2C2->CR2 |= (1<<13);
 }
 
 /**
@@ -105,30 +194,57 @@ int main(void)
 	
 	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
 	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	RCC->APB1ENR |= RCC_APB1ENR_I2C2EN;
 	
-	led_init();
+	gpio_init();
+	i2c_init();
 	
+	i2c_write();
 	
+	while (1)
+	{
+		if (I2C2->ISR & (1<<1))
+		{
+			break;
+		}
+		else if (I2C2->ISR & (1<<4)) {}
+	}
 	
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  /* USER CODE BEGIN 2 */
-
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-  }
-  /* USER CODE END 3 */
+	I2C2->TXDR |= 0x0F;
+	
+	while (1)
+	{
+		if (I2C2->ISR & (1<<6))
+		{
+			break;
+		}
+	}
+	
+	i2c_read();
+	
+	while (1)
+	{
+		if (I2C2->ISR & (1<<2))
+		{
+			break;
+		}
+		else if (I2C2->ISR & (1<<4)) {}
+	}
+	
+	while (1)
+	{
+		if (I2C2->ISR & (1<<6))
+		{
+			break;
+		}
+	}
+	
+	if (I2C2->RXDR == 0xD3)
+	{
+			I2C2->CR2 |= (1<<14);
+	}
+	
+  while (1) {}
 }
 
 /**
