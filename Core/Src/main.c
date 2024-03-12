@@ -56,27 +56,60 @@ void SystemClock_Config(void);
 
 /* USER CODE END 0 */
 
+void led_init(void)
+{
+	/* Initialize PB11 */
+	// Set to alternate function mode
+	GPIOB->MODER &= ~(1<<22);
+	GPIOB->MODER |= (1<<23);
+	// Set to open-drain output type
+	GPIOB->OTYPER |= (1<<11);
+	// Set I2C2_SDA as alternate function
+	
+	/* Initialize PB13 */
+	// Set to alternate function mode
+	GPIOB->MODER &= ~(1<<26);
+	GPIOB->MODER |= (1<<27);
+	// Set to open-drain output type
+	GPIOB->OTYPER |= (1<<13);
+	// Set I2C2_SCL as alternate function
+	
+	/* Initialize PB14 */
+	// Set to output mode
+	GPIOB->MODER |= (1<<28);
+	GPIOB->MODER &= ~(1<<29);
+	// Set to push-pull output type
+	GPIOB->OTYPER &= ~(1<<14);
+	// Initialize high
+	GPIOB->ODR |= (1<<14);
+	
+	
+	/* Initialize PC0 */
+	// Set to output mode
+	GPIOC->MODER |= (1<<0);
+	GPIOC->MODER &= ~(1<<1);
+	// Set to push-pull output type
+	GPIOC->OTYPER &= ~(1<<0);
+	// Initialize high
+	GPIOC->ODR |= (1<<0);
+}
+
 /**
   * @brief  The application entry point.
   * @retval int
   */
 int main(void)
 {
-  /* USER CODE BEGIN 1 */
-
-  /* USER CODE END 1 */
-
-  /* MCU Configuration--------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
   SystemClock_Config();
+	
+	RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+	
+	led_init();
+	
+	
+	
 
   /* USER CODE BEGIN SysInit */
 
