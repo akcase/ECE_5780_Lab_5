@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdlib.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -157,30 +158,71 @@ void i2c_init(void)
 	I2C2->CR1 |= (1<<0);
 }
 
-void i2c_write(void)
+void tc_flag_rec(void)
 {
-	/* Configure I2C to write */
-	// Set the slave address to 0x6A
-	I2C2->CR2 |= (0x69<<1);
-	// Set the number of bytes to transmit to 1
-	I2C2->CR2 |= (1<<16);
-	// Set to write operation
-	I2C2->CR2 &= ~(1<<10);
-	// Set the start bit
-	I2C2->CR2 |= (1<<13);
+	while (1)
+	{
+		if (I2C2->ISR & (1<<6)) // Wait for TC
+		{
+			return;
+		}
+	}
 }
 
-void i2c_read(void)
+void i2c_write(int wr_val)
 {
-	/* Configure I2C to read */
-	// Set the slave address to 0x6A
+	/* Configure I2C to write */
+	// Set the slave address to 0x69
 	I2C2->CR2 |= (0x69<<1);
 	// Set the number of bytes to transmit to 1
 	I2C2->CR2 |= (1<<16);
 	// Set to write operation
+	I2C2->CR2 &= ~I2C_CR2_RD_WRN;
+	// Set the start bit
+	I2C2->CR2 |= (1<<13);
+	
+	while (1)
+	{
+		if (I2C2->ISR & (1<<1)) // Wait for TXIS
+		{
+			break;
+		}
+		else if (I2C2->ISR & (1<<4)) {} // Check for NACK
+	}	
+	
+	I2C2->TXDR = wr_val; // Write next data byte in TXDR
+
+	tc_flag_rec();
+}
+
+int i2c_read(void)
+{
+	int rec_val = 0;
+	/* Configure I2C to read */
+	I2C2->CR2 = 0;
+	// Set the slave address to 0x69
+	I2C2->CR2 |= (0x69<<1);
+	// Set the number of bytes to transmit to 1
+	I2C2->CR2 |= (1<<16);
+	// Set to read operation
 	I2C2->CR2 |= I2C_CR2_RD_WRN;
 	// Set the start bit
 	I2C2->CR2 |= (1<<13);
+	
+	while (1)
+	{
+		if (I2C2->ISR & (1<<2)) // Wait for RXNE
+		{
+			break;
+		}
+		else if (I2C2->ISR & (1<<4)) {} // Check for NACK
+	}
+	
+	rec_val = I2C2->RXDR; // Read received data byte
+	
+	tc_flag_rec();
+	
+	return rec_val;
 }
 
 /**
@@ -189,6 +231,7 @@ void i2c_read(void)
   */
 int main(void)
 {
+	int rec_val = 0;
   HAL_Init();
   SystemClock_Config();
 	
@@ -197,54 +240,156 @@ int main(void)
 	RCC->APB1ENR |= RCC_APB1ENR_I2C2EN;
 	
 	gpio_init();
+	
+	/* Part 1 */
+	//i2c_init();
+	
+	//i2c_write(0x0F);
+	
+	//rec_val = i2c_read();
+		
+	//if (rec_val == 0xD3)
+	//{
+	//		I2C2->CR2 |= (1<<14); // STOP
+	//}
+	
+	/* Part 2 */
+	// Reinitialize I2C
 	i2c_init();
 	
-	i2c_write();
+	/* Configure I2C to write */
+	I2C2->CR2 = 0;
+	// Set the slave address to 0x69
+	I2C2->CR2 |= (0x69<<1);
+	// Set the number of bytes to transmit to 1
+	I2C2->CR2 |= (2<<16);
+	// Set to write operation
+	I2C2->CR2 &= ~I2C_CR2_RD_WRN;
+	// Set the start bit
+	I2C2->CR2 |= (1<<13);
 	
 	while (1)
 	{
-		if (I2C2->ISR & (1<<1))
+		if (I2C2->ISR & (1<<1)) // Wait for TXIS
 		{
 			break;
 		}
-		else if (I2C2->ISR & (1<<4)) {}
-	}
+		else if (I2C2->ISR & (1<<4)) {} // Check for NACK
+	}	
 	
-	I2C2->TXDR |= 0x0F;
+	I2C2->TXDR = 0x20; // Write next data byte in TXDR
 	
 	while (1)
 	{
-		if (I2C2->ISR & (1<<6))
+		if (I2C2->ISR & (1<<1)) // Wait for TXIS
 		{
 			break;
 		}
-	}
+		else if (I2C2->ISR & (1<<4)) {} // Check for NACK
+	}	
 	
-	i2c_read();
+	I2C2->TXDR = 0x0B;
 	
-	while (1)
+	tc_flag_rec();
+	
+	/* Initialize values for X and Y */
+	int16_t x;
+	int16_t y;
+	int16_t threshold = 50;
+	
+  while (1) 
 	{
-		if (I2C2->ISR & (1<<2))
+		i2c_write(0x28);
+		x = i2c_read();
+		i2c_write(0x29);
+		x = (i2c_read() << 8);
+		
+		i2c_write(0x2A);
+		y = i2c_read();
+		i2c_write(0x2B);
+		y = (i2c_read() << 8);
+		
+		// Check which has the larger magnitude
+		if (abs(x) > abs(y)) // If x has the larger magnitude
 		{
-			break;
+			if (x > 0) // If x is positive
+			{
+				// x+ is up
+				if (abs(x) > threshold)
+				{
+					GPIOC->ODR |= (1<<6);
+					GPIOC->ODR &= ~(1<<7);
+					GPIOC->ODR &= ~(1<<8);
+					GPIOC->ODR &= ~(1<<9);
+				}
+				else
+				{
+					GPIOC->ODR &= ~(1<<6);
+					GPIOC->ODR &= ~(1<<7);
+					GPIOC->ODR &= ~(1<<8);
+					GPIOC->ODR &= ~(1<<9);
+				}
+			}
+			else
+			{
+				// x- is up
+				if (abs(x) > threshold)
+				{
+					GPIOC->ODR &= ~(1<<6);
+					GPIOC->ODR |= (1<<7);
+					GPIOC->ODR &= ~(1<<8);
+					GPIOC->ODR &= ~(1<<9);
+				}
+				else
+				{
+					GPIOC->ODR &= ~(1<<6);
+					GPIOC->ODR &= ~(1<<7);
+					GPIOC->ODR &= ~(1<<8);
+					GPIOC->ODR &= ~(1<<9);
+				}
+			}
 		}
-		else if (I2C2->ISR & (1<<4)) {}
-	}
-	
-	while (1)
-	{
-		if (I2C2->ISR & (1<<6))
+		else // If y has the larger magnitude
 		{
-			break;
+			if (y > 0)
+			{
+				// y+ is up
+				if (abs(y) > threshold)
+				{
+					GPIOC->ODR &= ~(1<<6);
+					GPIOC->ODR &= ~(1<<7);
+					GPIOC->ODR |= (1<<8);
+					GPIOC->ODR &= ~(1<<9);
+				}
+				else
+				{
+					GPIOC->ODR &= ~(1<<6);
+					GPIOC->ODR &= ~(1<<7);
+					GPIOC->ODR &= ~(1<<8);
+					GPIOC->ODR &= ~(1<<9);
+				}
+			}
+			else
+			{
+				// y- is up
+				if (abs(y) > threshold)
+				{
+					GPIOC->ODR &= ~(1<<6);
+					GPIOC->ODR &= ~(1<<7);
+					GPIOC->ODR &= ~(1<<8);
+					GPIOC->ODR |= (1<<9);
+				}
+				else
+				{
+					GPIOC->ODR &= ~(1<<6);
+					GPIOC->ODR &= ~(1<<7);
+					GPIOC->ODR &= ~(1<<8);
+					GPIOC->ODR &= ~(1<<9);
+				}
+			}
 		}
+		HAL_Delay(100);
 	}
-	
-	if (I2C2->RXDR == 0xD3)
-	{
-			I2C2->CR2 |= (1<<14);
-	}
-	
-  while (1) {}
 }
 
 /**
