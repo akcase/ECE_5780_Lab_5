@@ -101,6 +101,36 @@ void gpio_init(void)
 	// Initialize high
 	GPIOC->ODR |= (1<<0);
 	
+	/* Setup Red LED (PC6) */
+	// Set to general purpose output mode
+	GPIOC->MODER |= (1<<12);
+	GPIOC->MODER &= ~(1<<13);
+	// Set to push-pull mode
+	GPIOC->OTYPER &= ~(1<<6);
+	// Set to low speed
+	GPIOC->OSPEEDR &= ~(1<<12);
+	GPIOC->OSPEEDR &= ~(1<<13);
+	// Set no pull-up, no pull-down
+	GPIOC->PUPDR &= ~(1<<12);
+	GPIOC->PUPDR &= ~(1<<13);
+	// Initialize to low
+	GPIOC->ODR &= ~(1<<6);
+
+	/* Setup Blue LED (PC7) */
+	// Set to general purpose output mode
+	GPIOC->MODER |= (1<<14);
+	GPIOC->MODER &= ~(1<<15);
+	// Set to push-pull mode
+	GPIOC->OTYPER &= ~(1<<7);
+	// Set to low speed
+	GPIOC->OSPEEDR &= ~(1<<14);
+	GPIOC->OSPEEDR &= ~(1<<15);
+	// Set no pull-up, no pull-down
+	GPIOC->PUPDR &= ~(1<<14);
+	GPIOC->PUPDR &= ~(1<<15);
+	// Initialize to low
+	GPIOC->ODR &= ~(1<<7);
+	
 	/* Setup Orange LED (PC8) */
 	// Set to general purpose output mode
 	GPIOC->MODER |= (1<<16);
@@ -172,6 +202,7 @@ void tc_flag_rec(void)
 void i2c_write(int wr_val)
 {
 	/* Configure I2C to write */
+	I2C2->CR2 = 0;
 	// Set the slave address to 0x69
 	I2C2->CR2 |= (0x69<<1);
 	// Set the number of bytes to transmit to 1
@@ -295,7 +326,7 @@ int main(void)
 	/* Initialize values for X and Y */
 	int16_t x;
 	int16_t y;
-	int16_t threshold = 50;
+	int16_t threshold = 0x0FFF;
 	
   while (1) 
 	{
@@ -317,9 +348,9 @@ int main(void)
 				// x+ is up
 				if (abs(x) > threshold)
 				{
-					GPIOC->ODR |= (1<<6);
+					GPIOC->ODR &= ~(1<<6);
 					GPIOC->ODR &= ~(1<<7);
-					GPIOC->ODR &= ~(1<<8);
+					GPIOC->ODR |= (1<<8);
 					GPIOC->ODR &= ~(1<<9);
 				}
 				else
@@ -336,9 +367,9 @@ int main(void)
 				if (abs(x) > threshold)
 				{
 					GPIOC->ODR &= ~(1<<6);
-					GPIOC->ODR |= (1<<7);
+					GPIOC->ODR &= ~(1<<7);
 					GPIOC->ODR &= ~(1<<8);
-					GPIOC->ODR &= ~(1<<9);
+					GPIOC->ODR |= (1<<9);
 				}
 				else
 				{
@@ -357,8 +388,8 @@ int main(void)
 				if (abs(y) > threshold)
 				{
 					GPIOC->ODR &= ~(1<<6);
-					GPIOC->ODR &= ~(1<<7);
-					GPIOC->ODR |= (1<<8);
+					GPIOC->ODR |= (1<<7);
+					GPIOC->ODR &= ~(1<<8);
 					GPIOC->ODR &= ~(1<<9);
 				}
 				else
@@ -374,10 +405,10 @@ int main(void)
 				// y- is up
 				if (abs(y) > threshold)
 				{
-					GPIOC->ODR &= ~(1<<6);
+					GPIOC->ODR |= (1<<6);
 					GPIOC->ODR &= ~(1<<7);
 					GPIOC->ODR &= ~(1<<8);
-					GPIOC->ODR |= (1<<9);
+					GPIOC->ODR &= ~(1<<9);
 				}
 				else
 				{
